@@ -3,6 +3,13 @@
 #include <vector>
 #include <fstream>
 
+class Error : public std::runtime_error {
+public:
+    explicit Error(const std::string& _Message) : runtime_error(_Message) {}
+    Error(const std::string& _filename, const std::string& _Message) : runtime_error("Parse error: file: " + _filename + ". Message: " + _Message) {}
+};
+
+
 std::vector<std::string> split(std::string s, std::string delimiter) {
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
     std::string token;
@@ -29,7 +36,7 @@ void parse(const std::string& filename, const std::string& delimiter, std::vecto
     }
 
     if (!getline(file, s)) {
-        throw std::runtime_error("Could not read headers");
+        throw Error(filename, "Could not read headers.");
     }
 
     headers = split(s, delimiter);
@@ -39,13 +46,13 @@ void parse(const std::string& filename, const std::string& delimiter, std::vecto
     while (getline(file, s)) {
         str_values = split(s, delimiter);
         if (str_values.size() != headers.size()) {
-            throw std::runtime_error("Invalid values count. Line: " + std::to_string(line));
+            throw Error(filename, "Invalid values count. Line: " + std::to_string(line));
         }
         std::vector<double> double_values;
         for (int i = 0; i < str_values.size(); ++i) {
             try{ double_values.push_back(std::stod(str_values[i])); }
             catch (const std::exception& ex) {
-                throw std::runtime_error("Parse failed. Line: " + std::to_string(line) + ". Position: " + std::to_string(i+1) + ". " + ex.what() + ": " + str_values[i]);
+                throw Error(filename, "Parse failed. Line: " + std::to_string(line) + ". Position: " + std::to_string(i+1) + ". " + ex.what() + ": " + str_values[i]);
             }
         }
         values.push_back(double_values);
@@ -55,14 +62,14 @@ void parse(const std::string& filename, const std::string& delimiter, std::vecto
     file.close();
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     const std::string delimiter = ",";
     
     std::vector<std::string> headers;
     std::vector<std::vector<double>> values;
     
-    std::string filename = "HW1(error).txt";
+    std::string filename = argc > 1 ? argv[1] : "HW1.txt";
     try {
         parse(filename, delimiter, headers, values);
         for (int i = 0; i < headers.size(); ++i) {
@@ -82,9 +89,13 @@ int main()
             std::cout << std::endl;
         }
     }
+    catch (const Error& ex) {
+        std::cout << ex.what() << std::endl;
+        return 1;
+    }
     catch (const std::exception& ex) {
         std::cout << "Error: " << ex.what() << std::endl;
-        return 1;
+        return 2;
     }
     
     return 0;
